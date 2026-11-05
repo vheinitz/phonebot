@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/menu_exposure" android:title="@string/menu_exposure" />
+    <item android:id="@+id/menu_focus" android:title="@string/menu_focus" />
+    <item android:id="@+id/menu_size" android:title="@string/menu_size" />
+    <item android:id="@+id/menu_rotate" android:title="@string/menu_rotate" />
+    <item android:id="@+id/menu_thview" android:title="@string/menu_thview" />
+    <item android:id="@+id/menu_thauto" android:title="@string/menu_thauto" />
+    <item android:id="@+id/menu_raw" android:title="@string/menu_raw" />
+    <item android:id="@+id/menu_bstop" android:title="@string/menu_bstop" />
+    <item android:id="@+id/menu_batlow" android:title="@string/menu_batlow" />
+</menu>

@@ -1,5 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Phonebot</string>
-    <string name="telemetry_init">Phonebot bereit – ESP32 anstecken…</string>
+
+    <string name="btn_run">Start</string>
+    <string name="btn_stop">Stop</string>
+    <string name="btn_preview">Vorschau</string>
+    <string name="btn_capture">Aufnahme</string>
+    <string name="btn_learn">Linie</string>
+
+    <string name="menu_exposure">Belichtung…</string>
+    <string name="menu_focus">Fokus…</string>
+    <string name="menu_size">Aufnahme-Größe…</string>
+    <string name="menu_rotate">Vorschau drehen 90°</string>
+    <string name="menu_thview">TH-Bild an/aus</string>
+    <string name="menu_thauto">Schwelle: Auto (OTSU)</string>
+    <string name="menu_raw">Aufnahme auslösen</string>
+    <string name="menu_bstop">Ereignis: bstop</string>
+    <string name="menu_batlow">Ereignis: bat_low</string>
+
+    <string name="status_init">Phonebot bereit. ESP32 optional – läuft auch ohne.</string>
 </resources>

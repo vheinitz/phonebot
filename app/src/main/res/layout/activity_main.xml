@@ -1,23 +1,119 @@
 <?xml version="1.0" encoding="utf-8"?>
-<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#000000">
+    android:orientation="vertical"
+    android:background="#121417">
 
-    <!-- Kameravorschau (optional; die Analyse läuft auch ohne sichtbare Preview). -->
-    <androidx.camera.view.PreviewView
-        android:id="@+id/preview"
+    <!-- Vorschau-Box: links Livebild, rechts Schwellwert (TH). Höhe umschaltbar. -->
+    <LinearLayout
+        android:id="@+id/previewBox"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="240dp"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:id="@+id/liveview"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="#000000"
+            android:scaleType="fitCenter"
+            android:contentDescription="Livebild (gedreht, wie analysiert)" />
+
+        <ImageView
+            android:id="@+id/thview"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:background="#000000"
+            android:scaleType="fitCenter"
+            android:contentDescription="Schwellwertbild" />
+    </LinearLayout>
+
+    <!-- Schwellwert für die Linienfindung von Hand einstellen. -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:paddingStart="8dp"
+        android:paddingEnd="8dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Schwelle"
+            android:textColor="#9FB4C9"
+            android:textSize="12sp"
+            android:fontFamily="monospace" />
+
+        <SeekBar
+            android:id="@+id/thresholdBar"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:max="255" />
+
+        <TextView
+            android:id="@+id/thresholdVal"
+            android:layout_width="48dp"
+            android:layout_height="wrap_content"
+            android:gravity="end"
+            android:text="Auto"
+            android:textColor="#9FB4C9"
+            android:textSize="12sp"
+            android:fontFamily="monospace" />
+    </LinearLayout>
 
     <TextView
         android:id="@+id/telemetry"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_gravity="top|start"
-        android:padding="12dp"
+        android:padding="8dp"
         android:textColor="#00FF88"
-        android:textSize="16sp"
+        android:textSize="13sp"
         android:fontFamily="monospace"
-        android:text="@string/telemetry_init" />
-</FrameLayout>
+        android:text="@string/status_init" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="4dp">
+
+        <Button android:id="@+id/btnRun"
+            android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:text="@string/btn_run" />
+
+        <Button android:id="@+id/btnLearn"
+            android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:text="@string/btn_learn" />
+
+        <Button android:id="@+id/btnPreview"
+            android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:text="@string/btn_preview" />
+
+        <Button android:id="@+id/btnRaw"
+            android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:text="@string/btn_capture" />
+    </LinearLayout>
+
+    <!-- Interpreter-Fenster: hier schreibt man das Programm. -->
+    <EditText
+        android:id="@+id/editor"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:gravity="top|start"
+        android:padding="10dp"
+        android:background="#0C0E10"
+        android:textColor="#D8E0E8"
+        android:textColorHint="#55606A"
+        android:textSize="14sp"
+        android:fontFamily="monospace"
+        android:inputType="textMultiLine|textNoSuggestions|textVisiblePassword"
+        android:scrollbars="vertical"
+        android:hint="Programm hier eingeben…"
+        android:importantForAutofill="no" />
+</LinearLayout>

@@ -43,7 +43,7 @@ gut für einen Jugend-forscht-Kurs.
 |----------------------|--------------------------------------------------------------|
 | `simulator/`         | **Web-Simulator** – läuft sofort im Browser, ohne Hardware   |
 | `firmware/esp32/`    | ESP32-Firmware (Arduino/C++): Protokoll, PWM, Watchdog        |
-| `app/`               | Android-App-Gerüst (Kotlin): CameraX, Linienerkennung, PID   |
+| `app/`               | Android-App (Kotlin): Camera2, OpenCV-Erkennung, Interpreter |
 | `docs/PROTOCOL.md`   | USB-Serial-Protokoll Telefon ↔ ESP32                         |
 
 ## 1. Simulator starten (die Programmierumgebung)
@@ -105,8 +105,12 @@ loop:
 | `cam.line.found` / `cam.line.lost`    | Linie sichtbar? / verloren?                 |
 | `cam.line.left` / `center` / `right`  | Zone, in der die Linie liegt                |
 | `cam.line.far_left` / `far_right`     | Linie weit außen (starke Abweichung)        |
-| `cam.line.error`                      | Abweichung in Pixeln (+ = rechts)           |
-| `cam.line.x`                          | dasselbe normiert auf −1 … +1               |
+| `cam.line.error`                      | Abweichung von der Mitte, normiert −1 … +1 (+ = rechts) |
+| `cam.line.x`                          | dasselbe (Alias)                            |
+
+> In der App ist `cam.line.error` **normiert auf −1…+1** (auflösungsunabhängig).
+> Der ältere Web-Simulator rechnet intern noch in Kamera-Pixeln; die Beispiele
+> dort nutzen daher größere Faktoren. Für die App einen Faktor ~50 wählen.
 
 Ein klassischer Linienfolger oder ein Proportionalregler sind damit nur
 jeweils **ein Beispielprogramm** (im Editor über „Beispiel → Laden" wählbar).
@@ -118,7 +122,8 @@ jeweils **ein Beispielprogramm** (im Editor über „Beispiel → Laden" wählba
 ## 2. Hardware (erster Aufbau)
 
 - Android-Smartphone (gebraucht reicht)
-- ESP32-S3 (natives USB) – oder klassischer ESP32 mit UART-USB-Adapter
+- ESP32-C3/S3 mit nativem USB (die mitgelieferte Firmware ist für den **C3**
+  verdrahtet) – oder klassischer ESP32 mit UART-USB-Adapter
 - Motortreiber **TB6612FNG**
 - 2 Getriebemotoren (langsam, hohes Übersetzungsverhältnis)
 - Zweirad-Chassis mit Stützkugel (Caster), 3D-gedruckte Telefonhalterung
@@ -130,43 +135,53 @@ jeweils **ein Beispielprogramm** (im Editor über „Beispiel → Laden" wählba
 1. Arduino IDE + ESP32-Board-Support installieren.
 2. `firmware/esp32/phonebot_firmware.ino` öffnen.
 3. Pin-Belegung oben in der Datei an die eigene Verdrahtung anpassen.
-4. Board = ESP32-S3 (bzw. eigenes), Port wählen, hochladen.
+4. Board = ESP32-C3 Dev Module (bzw. eigenes), „USB CDC On Boot: Enabled", Port wählen, hochladen.
 5. Test im seriellen Monitor (115200 Baud): `PING` senden → `PONG` kommt zurück.
    `SET,LEFT,120` → `ACK`, linkes Rad dreht. Nach 400 ms ohne Befehl stoppt der
    Roboter automatisch (Watchdog).
 
-## 4. Android-App bauen
+## 4. Android-App bauen und nutzen
 
-Das Verzeichnis `app/` enthält ein **Gerüst**: Linienerkennung → Kontext,
-Protokoll und die Android-Anbindung (CameraX, USB) sind angelegt und
-kommentiert. Das **Herzstück – der Interpreter für die Wenn-Dann-Sprache –
-ist noch aus dem Simulator (`simulator/index.html`, Abschnitt „MINI-SPRACHE")
-nach Kotlin zu portieren**, zusammen mit einem Code-Editor-Screen. Die
-JavaScript-Fassung ist dort bereits vollständig und auf mehreren Bahnen
-getestet, dient also als Referenz.
+Die App in `app/` ist lauffähig: Sie **programmiert den Roboter über die
+Mini-Sprache direkt auf dem Telefon** (Editor + Start/Stop), wertet das
+Kamerabild mit **OpenCV** aus und spricht den ESP32 über USB an. Der ESP32 ist
+**optional** – ohne ihn läuft alles weiter, nur die Motorbefehle gehen ins Leere.
 
-Die Datei `PidController.kt` ist dabei nur eine **Hilfsklasse** für den Fall,
-dass jemand lieber einen klassischen Regler verdrahtet – im Sprachkonzept ist
-Proportionalregelung einfach ein Programm (`mot.left = 90 - cam.line.error*k`).
+Aufbau (Hochformat): kleine Kamera-Vorschau (Knopf schaltet klein/voll/aus),
+Telemetrie, Knopfleiste, darunter das **Interpreter-Fenster** (Editor).
+
+- **Kamera: pures Camera2.** Preview + YUV-Analysestrom + RAW-ImageReader in einer
+  Session. Über das Menü (⋮) sind **Belichtung** (Zeit + ISO, AE aus) und **Fokus**
+  (Dioptrien, AF aus) manuell einstellbar – soweit das Gerät `MANUAL_SENSOR` meldet.
+- **RAW-Aufnahme → DNG** (Knopf „RAW" / Menü): ein Einzelbild wird als DNG in die
+  Galerie (`Pictures/Phonebot/`) gespeichert; der Vorschaustrom läuft dabei durch.
+  Kann das Gerät die 3-Stream-Kombi nicht, fällt die App auf Preview+YUV zurück.
+- **Erkennung: OpenCV** (`CvLineDetector`): ROI im unteren Bilddrittel, OTSU-
+  Schwellwert, Schwerpunkt → `cam.line.*`.
+
+Bauen:
 
 1. In Android Studio öffnen (Projektwurzel = dieses Verzeichnis).
-2. Gradle synchronisieren (lädt CameraX und `usb-serial-for-android` via JitPack).
-3. Noch zu ergänzen für einen vollständigen Lauf:
-   - Laufzeit-Abfrage der **Kamera-Berechtigung**
-   - **USB-Permission-Dialog** (`UsbManager.requestPermission`) vor `usb.open()`
-   - optional `PreviewView` mit der Kamera verbinden
-4. ESP32 per OTG-Kabel anstecken, App starten, Roboter auf eine schwarze Linie
-   auf hellem Untergrund setzen.
+2. Gradle synchronisieren (lädt OpenCV, `usb-serial-for-android` u. a.).
+3. Auf dem Telefon Kamera-Berechtigung erlauben; ESP32 (optional) per OTG
+   anstecken und die USB-Abfrage bestätigen.
+4. Programm schreiben (oder das vorgeladene nehmen), **Start** drücken, Roboter
+   auf eine dunkle Linie auf hellem Untergrund setzen.
+
+> Die Mini-Sprache ist dieselbe wie im Simulator (oben dokumentiert). Der
+> Interpreter ist nach Kotlin portiert (`Interpreter.kt`) und per JVM-Test
+> abgesichert (`app/src/test/java/de/phonebot/InterpreterTest.kt`).
 
 ### Kernklassen (in `app/src/main/java/de/phonebot/`)
 
-| Klasse               | Aufgabe                                                    |
-|----------------------|------------------------------------------------------------|
-| `LineDetector`       | ROI → Schwellwert → Mittelpunkt → Abweichung (px)          |
-| `PidController`      | PID mit D-Tiefpass und Anti-Windup (Defaults wie Simulator)|
-| `CommandProtocol`    | baut `SET/STOP/MODE/PING`, rechnet Korrektur → Radsollwerte |
-| `UsbSerialLink`      | USB-OTG-Verbindung zum ESP32 (CDC-ACM)                     |
-| `MainActivity`       | fügt Kamera → Erkennung → PID → Protokoll → USB zusammen   |
+| Klasse             | Aufgabe                                                        |
+|--------------------|----------------------------------------------------------------|
+| `Interpreter`      | Mini-Sprache: Tokenizer, Einrückungs-Parser, Laufzeit (Events) |
+| `CvLineDetector`   | OpenCV: ROI → OTSU-Schwellwert → Schwerpunkt → Abweichung (px)  |
+| `CameraController` | Camera2: Preview/YUV/RAW, manuelle Belichtung/Fokus, DNG       |
+| `CommandProtocol`  | baut `SET/STOP/MODE/PING`, rechnet Werte → Radsollwerte         |
+| `UsbSerialLink`    | USB-OTG zum ESP32 (CDC-ACM; eigener Prober für 303A:1001)       |
+| `MainActivity`     | verbindet Kamera → OpenCV → Interpreter → Protokoll → USB       |
 
 ## Ausblick
 
