@@ -1,0 +1,807 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Phonebot Simulator</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#171c24; --panel2:#1d2430; --line:#2a3340;
+    --fg:#e6edf3; --mut:#8b98a8; --acc:#4aa8ff; --ok:#3fb950; --warn:#f0a93b;
+    --red:#ff6b6b; --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;}
+  header{padding:14px 20px;border-bottom:1px solid var(--line);display:flex;
+    align-items:baseline;gap:14px;flex-wrap:wrap}
+  header h1{font-size:17px;margin:0;font-weight:650}
+  header .sub{color:var(--mut);font-size:12.5px}
+  .wrap{display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:16px;padding:16px 20px;
+    max-width:1360px;margin:0 auto}
+  @media(max-width:980px){.wrap{grid-template-columns:1fr}}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .card h2{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);
+    margin:0;padding:11px 14px;border-bottom:1px solid var(--line);font-weight:600;
+    display:flex;justify-content:space-between;align-items:center}
+  .card .body{padding:14px}
+  #world{display:block;width:100%;height:auto;background:#f4f1ea}
+  .stage{position:relative}
+  .camwrap{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap}
+  canvas.cam{image-rendering:pixelated;border:1px solid var(--line);border-radius:6px;background:#000}
+  .camlabels{font:11.5px/1.5 var(--mono);color:var(--mut)}
+  .camlabels b{color:var(--fg);font-weight:600}
+  .controls{display:flex;gap:8px;padding:12px 14px;border-top:1px solid var(--line);
+    flex-wrap:wrap;align-items:center;background:var(--panel2)}
+  button{background:#243040;color:var(--fg);border:1px solid var(--line);border-radius:8px;
+    padding:8px 14px;font-size:13px;cursor:pointer;font-weight:550}
+  button:hover{border-color:var(--acc)}
+  button.primary{background:var(--acc);border-color:var(--acc);color:#04121f}
+  button.primary:hover{filter:brightness(1.08)}
+  button.danger{background:#3a1f26;border-color:#5a2a33;color:#ff9aa6}
+  button.danger:hover{border-color:var(--red)}
+  select{background:#243040;color:var(--fg);border:1px solid var(--line);border-radius:8px;
+    padding:7px 10px;font-size:13px}
+  label.lbl{color:var(--mut);font-size:12.5px}
+  .events{display:flex;gap:8px;padding:10px 14px;border-top:1px solid var(--line);
+    flex-wrap:wrap;align-items:center;font-size:12px}
+  .bat{display:inline-flex;align-items:center;gap:7px;font:12px var(--mono);color:var(--mut)}
+  .batcell{width:34px;height:14px;border:1px solid #5a6676;border-radius:3px;position:relative;padding:1px}
+  .batcell::after{content:"";position:absolute;right:-3px;top:4px;width:2px;height:6px;background:#5a6676;border-radius:0 2px 2px 0}
+  .batfill{height:100%;background:var(--ok);border-radius:1px;transition:width .2s}
+  .keyhint{color:var(--mut);font-size:11.5px}
+  .keyhint kbd{background:#0b0f14;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;
+    padding:0 5px;font:11px var(--mono);color:#d7e3f0}
+  /* Editor */
+  #code{width:100%;height:300px;resize:vertical;background:#0b0f14;color:#d7e3f0;
+    border:1px solid var(--line);border-radius:8px;padding:10px 12px;
+    font:13px/1.6 var(--mono);tab-size:2;white-space:pre;overflow:auto}
+  #code:focus{outline:none;border-color:var(--acc)}
+  .status{font:12px var(--mono);padding:8px 14px;border-top:1px solid var(--line);white-space:pre-wrap}
+  .status.ok{color:var(--ok)}
+  .status.err{color:var(--red)}
+  .editbtns{display:flex;gap:8px;padding:10px 14px 0;flex-wrap:wrap;align-items:center}
+  .ctx{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+  .chip{font:11.5px var(--mono);padding:3px 9px;border-radius:999px;border:1px solid var(--line);
+    color:var(--mut);background:#10151c}
+  .chip.on{color:#04121f;background:var(--ok);border-color:var(--ok);font-weight:650}
+  .nums{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font:12.5px var(--mono);
+    color:var(--mut);margin-bottom:10px}
+  .nums b{color:var(--fg);font-weight:600}
+  .vars{font:12px var(--mono);color:var(--mut);margin-bottom:10px;min-height:18px}
+  .vars b{color:var(--acc);font-weight:600}
+  .bar{display:flex;align-items:center;gap:8px;margin:6px 0;font:11.5px var(--mono)}
+  .bar .name{width:70px;color:var(--mut)}
+  .bar .track{flex:1;height:12px;background:#0c1118;border-radius:6px;position:relative;overflow:hidden}
+  .bar .mid{position:absolute;left:50%;top:0;bottom:0;width:1px;background:#36465a}
+  .bar .fill{position:absolute;top:0;bottom:0;background:var(--acc);border-radius:3px}
+  .bar .num{width:48px;text-align:right}
+  .log{height:110px;overflow:auto;background:#0b0f14;border:1px solid var(--line);border-radius:8px;
+    padding:8px 10px;font:12px/1.5 var(--mono);color:#9fb4c9}
+  .log .tx{color:var(--acc)} .log .ev{color:var(--warn)}
+  .legend{font-size:11.5px;color:var(--mut);padding:10px 14px;border-top:1px solid var(--line);
+    display:flex;gap:16px;flex-wrap:wrap}
+  .legend span{display:inline-flex;align-items:center;gap:6px}
+  .dot{width:10px;height:10px;border-radius:50%}
+  .pill{font:11px var(--mono);padding:2px 8px;border-radius:999px;border:1px solid var(--line)}
+  .pill.run{color:var(--ok);border-color:#1e4028;background:#0f2016}
+  .pill.stop{color:var(--mut)}
+  details{margin-top:10px;font-size:12.5px;color:var(--mut)}
+  details summary{cursor:pointer;color:var(--acc);font-weight:600}
+  details code{color:#d7e3f0;background:#0b0f14;padding:1px 5px;border-radius:4px}
+  details table{border-collapse:collapse;margin-top:8px;width:100%}
+  details td{border-top:1px solid var(--line);padding:4px 6px;vertical-align:top}
+  details pre{background:#0b0f14;border:1px solid var(--line);border-radius:6px;padding:8px 10px;
+    overflow:auto;color:#d7e3f0;font:12px/1.5 var(--mono)}
+  footer{color:var(--mut);font-size:11.5px;text-align:center;padding:10px 20px 26px}
+</style>
+</head>
+<body>
+<header>
+  <h1>🤖 Phonebot&nbsp;Simulator</h1>
+  <span class="sub">Der Roboter wird <b>programmiert</b>: Blöcke, Ereignisse (start/key/bstop/bat_low), loop &amp; for.</span>
+</header>
+
+<div class="wrap">
+  <!-- LEFT -->
+  <div style="display:flex;flex-direction:column;gap:16px;min-width:0">
+    <div class="card">
+      <h2>Weltansicht (Draufsicht auf die Bahn)
+        <span id="runpill" class="pill stop">gestoppt</span></h2>
+      <div class="stage"><canvas id="world" width="900" height="560"></canvas></div>
+      <div class="controls">
+        <button id="btnRun" class="primary">▶ Programm starten</button>
+        <button id="btnReset">↺ Reset</button>
+        <label class="lbl">Bahn</label>
+        <select id="track">
+          <option value="oval">Oval (leicht)</option>
+          <option value="wave" selected>Wellen (mittel)</option>
+          <option value="stadium">Stadion</option>
+          <option value="zig">Zickzack (schwer)</option>
+        </select>
+      </div>
+      <div class="events">
+        <span class="bat">Akku <span class="batcell"><span class="batfill" id="batFill" style="width:100%"></span></span><span id="batTxt">100%</span></span>
+        <button id="btnBstop" class="danger">⏹ Stopp-Knopf (bstop)</button>
+        <button id="btnBatlow">🔋 Akku schwach (bat_low)</button>
+        <span class="keyhint">Tasten-Events: in die Simulation klicken, dann <kbd>Taste</kbd> drücken (zuletzt: <b id="lastKey">–</b>)</span>
+      </div>
+      <div class="legend">
+        <span><span class="dot" style="background:#111"></span>Linie</span>
+        <span><span class="dot" style="background:#4aa8ff"></span>Roboter</span>
+        <span><span class="dot" style="background:#f0a93b"></span>Kamera-Sichtfeld</span>
+        <span><span class="dot" style="background:#3fb950"></span>Spur</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Was das Telefon sieht — Kamera → Kontext</h2>
+      <div class="body camwrap">
+        <div style="text-align:center">
+          <canvas id="camRaw" class="cam" width="80" height="60" style="width:190px;height:142px"></canvas>
+          <div class="camlabels" style="margin-top:4px">Kamera (ROI)</div>
+        </div>
+        <div style="text-align:center">
+          <canvas id="camBin" class="cam" width="80" height="60" style="width:190px;height:142px"></canvas>
+          <div class="camlabels" style="margin-top:4px">Schwellwert + Linienmitte</div>
+        </div>
+        <div class="camlabels" style="flex:1;min-width:150px">
+          Aus dem Bild werden die <b>Kontext-Variablen</b> abgeleitet, die dein
+          Programm lesen kann:<br><br>
+          <code style="color:#9fb4c9">cam.line.left / center / right</code><br>
+          <code style="color:#9fb4c9">cam.line.error</code> (px, + = rechts)<br><br>
+          Status: <b id="lineTxt">—</b>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div style="display:flex;flex-direction:column;gap:16px">
+    <div class="card">
+      <h2>Programm (läuft auf dem Telefon)</h2>
+      <div class="editbtns">
+        <label class="lbl">Beispiel</label>
+        <select id="examples">
+          <option value="prop">Proportional + Suche</option>
+          <option value="zones">Zonen (mehrzeilig, loop)</option>
+          <option value="drive">Fahren mit Tasten (BT)</option>
+          <option value="events">Start · Akku · Stopp</option>
+          <option value="fordemo">for-Schleife (Rechnen)</option>
+          <option value="empty">Leer (Vorlage)</option>
+        </select>
+        <button id="btnLoad">Laden</button>
+      </div>
+      <div class="body" style="padding:12px 14px">
+        <textarea id="code" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+      </div>
+      <div id="status" class="status ok">bereit</div>
+      <details>
+        <summary>Sprache — kurze Hilfe</summary>
+        <p>Blöcke werden <b>über Einrückung</b> gebildet (wie in Python): eine Kopfzeile
+        endet mit <code>:</code>, der Körper steht eingerückt darunter. Für einen
+        kurzen Einzeiler dürfen die Anweisungen auch mit <code>;</code> hinter dem
+        <code>:</code> stehen. <code>#</code> leitet einen Kommentar ein.</p>
+        <pre>loop:
+  mot.left = 95
+  mot.right = 95
+  if cam.line.lost:
+    mot.left = 0
+    mot.right = 0</pre>
+        <p><b>Abschnitte / Ereignisse</b> (nur ganz links):</p>
+        <table>
+          <tr><td><code>start:</code></td><td>läuft einmal beim Start (Variablen vorbelegen)</td></tr>
+          <tr><td><code>loop:</code></td><td>läuft in jedem Takt (Hauptschleife)</td></tr>
+          <tr><td><code>key w:</code></td><td>wenn Taste <code>w</code> gedrückt wird (z. B. BT-Tastatur)</td></tr>
+          <tr><td><code>bstop:</code></td><td>wenn der Stopp-Knopf gedrückt wird (hält danach an)</td></tr>
+          <tr><td><code>bat_low:</code></td><td>wenn der Akku schwach wird</td></tr>
+        </table>
+        <p><b>Steuerung &amp; Werte:</b></p>
+        <table>
+          <tr><td><code>mot.left = …</code></td><td>Motor setzen (−255…255, − = rückwärts)</td></tr>
+          <tr><td><code>speed = 120</code></td><td>eigene Variable (merkt sich Werte über Takte)</td></tr>
+          <tr><td><code>if … :</code> / <code>else:</code></td><td>Verzweigung</td></tr>
+          <tr><td><code>for i = 1 to 5:</code></td><td>Zählschleife (synchron, zum Rechnen)</td></tr>
+          <tr><td><code>stop</code></td><td>Programm anhalten</td></tr>
+          <tr><td><code>and or not</code> <code>&lt; &gt; == …</code></td><td>in Bedingungen; Rechnen mit <code>+ - * /</code></td></tr>
+        </table>
+        <p style="margin-top:8px">Kontext (lesbar):
+          <code>cam.line.found</code> <code>cam.line.lost</code>
+          <code>cam.line.left</code> <code>cam.line.center</code> <code>cam.line.right</code>
+          <code>cam.line.far_left</code> <code>cam.line.far_right</code>
+          <code>cam.line.error</code> <code>cam.line.x</code></p>
+      </details>
+    </div>
+
+    <div class="card">
+      <h2>Live-Kontext · Variablen · Motoren</h2>
+      <div class="body">
+        <div class="ctx" id="ctxChips"></div>
+        <div class="nums">
+          <span>cam.line.error</span><b id="vErr">0</b>
+          <span>cam.line.x</span><b id="vX">0</b>
+        </div>
+        <div class="vars" id="varsBox">Variablen: –</div>
+        <div class="bar"><span class="name">mot.left</span>
+          <div class="track"><div class="mid"></div><div class="fill" id="barL"></div></div><span class="num" id="numL">0</span></div>
+        <div class="bar"><span class="name">mot.right</span>
+          <div class="track"><div class="mid"></div><div class="fill" id="barR"></div></div><span class="num" id="numR">0</span></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>USB-Serial (Telefon → ESP32)</h2>
+      <div class="body" style="padding:10px 12px">
+        <div class="log" id="log"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>Lokaler Prototyp · kein Internet nötig. Schreibe ein Programm, drücke Start — der Roboter führt es aus.</footer>
+
+<script>
+"use strict";
+/* ===================================================================
+   1) WELT + BAHN
+=================================================================== */
+const world=document.getElementById('world'), W=world.width, H=world.height;
+const ctx=world.getContext('2d');
+const trackCv=document.createElement('canvas'); trackCv.width=W; trackCv.height=H;
+const tctx=trackCv.getContext('2d'); let trackData=null; const LINE_W=26;
+const TAU=Math.PI*2, cx=W/2, cy=H/2;
+const tracks={
+  oval:    t=>[cx+320*Math.cos(TAU*t), cy+200*Math.sin(TAU*t)],
+  wave:    t=>[cx+320*Math.cos(TAU*t), cy+185*Math.sin(TAU*t)+55*Math.sin(TAU*t*3)],
+  zig:     t=>[cx+320*Math.cos(TAU*t), cy+150*Math.sin(TAU*t)+60*Math.sin(TAU*t*5)],
+  stadium: t=>{const a=TAU*t,c=Math.cos(a),s=Math.sin(a);
+    return [cx+300*Math.sign(c)*Math.pow(Math.abs(c),0.72),
+            cy+175*Math.sign(s)*Math.pow(Math.abs(s),0.72)];}
+};
+let trackName='wave';
+function buildTrack(name){
+  trackName=name;
+  tctx.fillStyle='#f4f1ea'; tctx.fillRect(0,0,W,H);
+  const f=tracks[name];
+  tctx.strokeStyle='#111'; tctx.lineWidth=LINE_W; tctx.lineCap='round'; tctx.lineJoin='round';
+  tctx.beginPath();
+  const N=600;
+  for(let k=0;k<=N;k++){const [x,y]=f(k/N); k?tctx.lineTo(x,y):tctx.moveTo(x,y);}
+  tctx.closePath(); tctx.stroke();
+  trackData=tctx.getImageData(0,0,W,H);
+}
+function brightnessAt(x,y){
+  x|=0; y|=0; if(x<0||y<0||x>=W||y>=H) return 255;
+  const i=(y*W+x)*4, d=trackData.data;
+  return d[i]*0.299+d[i+1]*0.587+d[i+2]*0.114;
+}
+
+/* ===================================================================
+   2) ROBOTER + KAMERA
+=================================================================== */
+const robot={x:0,y:0,th:0,wheelBase:34,camAhead:40,camW:100,camH:50,trail:[]};
+const CAM_GW=80,CAM_GH=60,THRESH=95,DETECT_ROW=CAM_GH-8;
+const camRaw=document.getElementById('camRaw'),craw=camRaw.getContext('2d');
+const camBin=document.getElementById('camBin'),cbin=camBin.getContext('2d');
+const rawImg=craw.createImageData(CAM_GW,CAM_GH), binImg=cbin.createImageData(CAM_GW,CAM_GH);
+
+function sampleCamera(){
+  const ct=Math.cos(robot.th),st=Math.sin(robot.th);
+  const fx=robot.x+ct*robot.camAhead, fy=robot.y+st*robot.camAhead;
+  let sum=0,cnt=0;
+  for(let gy=0;gy<CAM_GH;gy++){
+    const v=(gy/(CAM_GH-1)-0.5)*robot.camH;
+    for(let gx=0;gx<CAM_GW;gx++){
+      const u=(gx/(CAM_GW-1)-0.5)*robot.camW;
+      const wx=fx+ct*(-v)+(-st)*u, wy=fy+st*(-v)+ct*u;
+      const b=brightnessAt(wx,wy)|0, o=(gy*CAM_GW+gx)*4;
+      rawImg.data[o]=b;rawImg.data[o+1]=b;rawImg.data[o+2]=b;rawImg.data[o+3]=255;
+      const dark=b<THRESH, bv=dark?0:230;
+      binImg.data[o]=bv;binImg.data[o+1]=bv;binImg.data[o+2]=bv;binImg.data[o+3]=255;
+      if(gy===DETECT_ROW&&dark){sum+=gx;cnt++;}
+    }
+  }
+  craw.putImageData(rawImg,0,0);
+  let err=null,center=null;
+  if(cnt>0){center=sum/cnt; err=center-(CAM_GW-1)/2;}
+  cbin.putImageData(binImg,0,0);
+  cbin.save();
+  cbin.strokeStyle='#4aa8ff';cbin.lineWidth=1;
+  cbin.beginPath();cbin.moveTo(CAM_GW/2,0);cbin.lineTo(CAM_GW/2,CAM_GH);cbin.stroke();
+  if(center!==null){
+    cbin.strokeStyle='#ff6b6b';cbin.beginPath();
+    cbin.moveTo(center+0.5,DETECT_ROW-4);cbin.lineTo(center+0.5,DETECT_ROW+4);cbin.stroke();
+    cbin.fillStyle='#ff6b6b';cbin.fillRect(center-1,DETECT_ROW-1,3,3);
+  }
+  cbin.restore();
+  return err;
+}
+
+/* ===================================================================
+   3) SPRACHE  (Tokenizer · Ausdrücke · Einrückungs-Parser)
+=================================================================== */
+const READABLE={
+  'cam.line.error':c=>c.error, 'cam.line.x':c=>c.x,
+  'cam.line.found':c=>c.found?1:0, 'cam.line.lost':c=>c.lost?1:0,
+  'cam.line.left':c=>c.left?1:0, 'cam.line.right':c=>c.right?1:0,
+  'cam.line.center':c=>c.center?1:0,
+  'cam.line.far_left':c=>c.far_left?1:0, 'cam.line.far_right':c=>c.far_right?1:0,
+  'mot.left':c=>c.mot.left, 'mot.right':c=>c.mot.right,
+};
+const WRITABLE={'mot.left':1,'mot.right':1};
+const RESERVED={if:1,else:1,'for':1,to:1,and:1,or:1,not:1,'true':1,'false':1,
+  start:1,loop:1,key:1,bstop:1,bat_low:1,stop:1};
+
+function tokenize(s){
+  const toks=[]; let i=0;
+  while(i<s.length){
+    const c=s[i];
+    if(c===' '||c==='\t'){i++;continue;}
+    const two=s.substr(i,2);
+    if(two==='<='||two==='>='||two==='=='||two==='!='){toks.push({v:two});i+=2;continue;}
+    if('+-*/()<>=;'.indexOf(c)>=0){toks.push({v:c});i++;continue;}
+    if(/[0-9.]/.test(c)){let j=i;while(j<s.length&&/[0-9.]/.test(s[j]))j++;
+      toks.push({v:parseFloat(s.slice(i,j)),num:true});i=j;continue;}
+    if(/[A-Za-z_]/.test(c)){let j=i;while(j<s.length&&/[A-Za-z0-9_.]/.test(s[j]))j++;
+      toks.push({v:s.slice(i,j),id:true});i=j;continue;}
+    throw "Unerwartetes Zeichen '"+c+"'";
+  }
+  return toks;
+}
+
+function makeParser(toks){
+  let p=0;
+  const peek=()=>toks[p], next=()=>toks[p++];
+  function eat(v){ if(!peek()||peek().v!==v) throw "'"+v+"' erwartet"; p++; }
+  function atEnd(){ return p>=toks.length; }
+  // Arithmetik
+  function expr(){ return addsub(); }
+  function addsub(){ let l=muldiv();
+    while(peek()&&(peek().v==='+'||peek().v==='-')){const op=next().v,r=muldiv(),L=l;
+      l=op==='+'?c=>L(c)+r(c):c=>L(c)-r(c);} return l; }
+  function muldiv(){ let l=unary();
+    while(peek()&&(peek().v==='*'||peek().v==='/')){const op=next().v,r=unary(),L=l;
+      l=op==='*'?c=>L(c)*r(c):c=>L(c)/(r(c)||1e-9);} return l; }
+  function unary(){ if(peek()&&peek().v==='-'){next();const r=unary();return c=>-r(c);} return primary(); }
+  function primary(){
+    const tk=peek(); if(!tk) throw "Ausdruck erwartet";
+    if(tk.num){next();const v=tk.v;return ()=>v;}
+    if(tk.v==='true'){next();return ()=>1;}
+    if(tk.v==='false'){next();return ()=>0;}
+    if(tk.v==='('){next();const e=expr();eat(')');return e;}
+    if(tk.id){ next(); const name=tk.v;
+      if(READABLE[name]){const g=READABLE[name];return c=>g(c);}
+      if(name.indexOf('.')>=0) throw "Unbekannte Variable '"+name+"'";
+      if(RESERVED[name]) throw "'"+name+"' ist ein Schlüsselwort";
+      return c=> (name in c.vars ? c.vars[name] : 0); }
+    throw "Unerwartet '"+tk.v+"'";
+  }
+  // Bedingung
+  function cond(){ return orE(); }
+  function orE(){ let l=andE(); while(peek()&&peek().v==='or'){next();const r=andE(),L=l;l=c=>(L(c)||r(c))?1:0;} return l; }
+  function andE(){ let l=notE(); while(peek()&&peek().v==='and'){next();const r=notE(),L=l;l=c=>(L(c)&&r(c))?1:0;} return l; }
+  function notE(){ if(peek()&&peek().v==='not'){next();const r=notE();return c=>r(c)?0:1;} return cmp(); }
+  function cmp(){ const l=expr(); const tk=peek();
+    if(tk&&['<','>','<=','>=','==','!='].indexOf(tk.v)>=0){const op=next().v,r=expr(),L=l;
+      switch(op){case'<':return c=>L(c)<r(c)?1:0;case'>':return c=>L(c)>r(c)?1:0;
+        case'<=':return c=>L(c)<=r(c)?1:0;case'>=':return c=>L(c)>=r(c)?1:0;
+        case'==':return c=>L(c)==r(c)?1:0;case'!=':return c=>L(c)!=r(c)?1:0;}}
+    return l; }
+  function varName(){ const tk=next();
+    if(!tk||!tk.id||tk.v.indexOf('.')>=0||RESERVED[tk.v]||READABLE[tk.v]) throw "Variablenname erwartet";
+    return tk.v; }
+  function target(){ const tk=next(); if(!tk||!tk.id) throw "Motor- oder Variablenname erwartet";
+    if(WRITABLE[tk.v]) return {kind:'mot', side: tk.v==='mot.left'?'left':'right'};
+    if(tk.v.indexOf('.')>=0) throw "'"+tk.v+"' kann nicht gesetzt werden";
+    if(RESERVED[tk.v]) throw "'"+tk.v+"' ist ein Schlüsselwort";
+    return {kind:'var', name:tk.v}; }
+  return {expr,cond,varName,target,eat,atEnd,peek};
+}
+
+// Ausdruck/Bedingung mit Zeilennummer kompilieren
+function compileCond(str,ln){ try{ const mp=makeParser(tokenize(str)); const f=mp.cond();
+  if(!mp.atEnd()) throw "Bedingung nicht verstanden bei '"+mp.peek().v+"'"; return f;
+  }catch(e){ throw {ln,msg:(e.msg||e)}; } }
+
+function compileStmtTokens(toks){
+  if(toks.length===1 && toks[0].id && toks[0].v==='stop') return {t:'stop'};
+  const mp=makeParser(toks); const target=mp.target(); mp.eat('='); const fn=mp.expr();
+  if(!mp.atEnd()) throw "Zuviel in Anweisung bei '"+mp.peek().v+"'";
+  return {t:'assign', target, fn};
+}
+function parseStatements(str,ln){
+  let toks; try{ toks=tokenize(str);}catch(e){ throw {ln,msg:(e.msg||e)}; }
+  const chunks=[]; let cur=[];
+  for(const t of toks){ if(t.v===';'){chunks.push(cur);cur=[];} else cur.push(t); }
+  if(cur.length) chunks.push(cur);
+  const out=[];
+  for(const ch of chunks){ if(ch.length===0) continue;
+    try{ out.push(compileStmtTokens(ch)); }catch(e){ throw {ln,msg:(e.msg||e)}; } }
+  if(out.length===0) throw {ln,msg:"keine gültige Anweisung"};
+  return out;
+}
+function parseHeader(headerStr,ln){
+  const parts=headerStr.split(/\s+/), w=parts[0];
+  if(w==='if'){ return {t:'if', cond:compileCond(headerStr.slice(headerStr.indexOf('if')+2),ln), body:[], elseBody:null}; }
+  if(w==='for'){ const src=headerStr.slice(headerStr.indexOf('for')+3);
+    try{ const mp=makeParser(tokenize(src)); const name=mp.varName(); mp.eat('='); const fromFn=mp.expr();
+      mp.eat('to'); const toFn=mp.expr(); if(!mp.atEnd()) throw "Rest nach 'to B'";
+      return {t:'for', name, fromFn, toFn, body:[]};
+    }catch(e){ throw {ln, msg:"for erwartet 'for i = A to B': "+(e.msg||e)}; } }
+  if(w==='start'||w==='loop'||w==='bstop'||w==='bat_low'){
+    if(parts.length>1&&parts[1]!=='') throw {ln,msg:"'"+w+":' erwartet keine Angabe"}; return {t:w, body:[]}; }
+  if(w==='key'){ const rest=headerStr.slice(3).trim();
+    if(!rest||/\s/.test(rest)) throw {ln,msg:"'key <Taste>:' erwarten, z. B. key w:"};
+    return {t:'key', key:rest.toLowerCase(), body:[]}; }
+  if(w==='else') throw {ln,msg:"'else' ohne vorangehendes 'if'"};
+  throw {ln,msg:"Unbekannter Block '"+w+"'"};
+}
+const SECTIONS={start:1,loop:1,bstop:1,bat_low:1,key:1};
+
+function preprocess(src){
+  const raw=src.replace(/\t/g,'  ').split('\n'), lines=[];
+  for(let i=0;i<raw.length;i++){
+    let s=raw[i]; const h=s.indexOf('#'); if(h>=0) s=s.slice(0,h);
+    if(!s.trim()) continue;
+    const indent=s.length - s.replace(/^ +/,'').length;
+    lines.push({indent, text:s.trim(), ln:i+1});
+  }
+  return lines;
+}
+function parseBlock(lines,i,indent,topLevel){
+  const nodes=[];
+  while(i<lines.length && lines[i].indent>=indent){
+    if(lines[i].indent>indent) throw {ln:lines[i].ln, msg:"unerwartete Einrückung"};
+    const L=lines[i], colon=L.text.indexOf(':');
+    if(colon>=0){
+      const node=parseHeader(L.text.slice(0,colon).trim(), L.ln);
+      if(SECTIONS[node.t] && !topLevel) throw {ln:L.ln, msg:"'"+node.t+":' nur ganz links (oberste Ebene)"};
+      const inline=L.text.slice(colon+1).trim();
+      if(inline){ node.body=parseStatements(inline,L.ln); i++; }
+      else{
+        if(i+1>=lines.length || lines[i+1].indent<=indent) throw {ln:L.ln, msg:"eingerückter Block nach ':' fehlt"};
+        const r=parseBlock(lines,i+1,lines[i+1].indent,false); node.body=r.nodes; i=r.next;
+      }
+      if(node.t==='if' && i<lines.length && lines[i].indent===indent && /^else\s*:/.test(lines[i].text)){
+        const E=lines[i], ec=E.text.indexOf(':'), einline=E.text.slice(ec+1).trim();
+        if(einline){ node.elseBody=parseStatements(einline,E.ln); i++; }
+        else{ if(i+1>=lines.length||lines[i+1].indent<=indent) throw {ln:E.ln,msg:"Block nach 'else:' fehlt"};
+          const r=parseBlock(lines,i+1,lines[i+1].indent,false); node.elseBody=r.nodes; i=r.next; } }
+      nodes.push(node);
+    }else{
+      const fw=L.text.split(/\s+/)[0];
+      if({if:1,'for':1,'else':1,start:1,loop:1,key:1,bstop:1,bat_low:1}[fw])
+        throw {ln:L.ln, msg:"':' am Ende der Kopfzeile fehlt"};
+      for(const st of parseStatements(L.text,L.ln)) nodes.push(st); i++;
+    }
+  }
+  return {nodes, next:i};
+}
+function emptyProgram(){ return {start:[],loop:[],bstop:[],bat_low:[],keys:{},implicitLoop:[]}; }
+function compileProgram(src){
+  let lines; try{ lines=preprocess(src);}catch(e){ return {program:null,error:(e.msg||e)}; }
+  if(lines.length===0) return {program:emptyProgram(), error:null};
+  if(lines[0].indent!==0) return {program:null, error:"Zeile "+lines[0].ln+": darf nicht eingerückt sein"};
+  let nodes;
+  try{ const r=parseBlock(lines,0,0,true); nodes=r.nodes;
+    if(r.next<lines.length) throw {ln:lines[r.next].ln, msg:"Einrückung passt nicht"};
+  }catch(e){ return {program:null, error:(e.ln?("Zeile "+e.ln+": "):"")+(e.msg||e)}; }
+  const prog=emptyProgram();
+  for(const n of nodes){
+    if(n.t==='start') prog.start.push(...n.body);
+    else if(n.t==='loop') prog.loop.push(...n.body);
+    else if(n.t==='bstop') prog.bstop.push(...n.body);
+    else if(n.t==='bat_low') prog.bat_low.push(...n.body);
+    else if(n.t==='key') (prog.keys[n.key]=prog.keys[n.key]||[]).push(...n.body);
+    else prog.implicitLoop.push(n);
+  }
+  return {program:prog, error:null};
+}
+
+/* ===================================================================
+   4) LAUFZEIT
+=================================================================== */
+const CENTER_TOL=7, FAR_TOL=22;
+const motState={left:0,right:0};
+const vars={};
+let lastErr=0;
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+function buildContext(err){
+  const found=err!==null; const e=found?err:lastErr*0.9; if(found) lastErr=err;
+  return { found, lost:!found, error:e, x:e/((CAM_GW-1)/2),
+    left:e<-CENTER_TOL, right:e>CENTER_TOL, center:Math.abs(e)<=CENTER_TOL,
+    far_left:e<-FAR_TOL, far_right:e>FAR_TOL, mot:motState, vars };
+}
+let haltRequested=false, forGuard=0;
+function runBody(list,c){ for(const n of list) execNode(n,c); }
+function execNode(n,c){
+  switch(n.t){
+    case 'assign':{ let v=n.fn(c);
+      if(!isFinite(v)) v=0;
+      if(n.target.kind==='mot'){ v=clamp(v,-255,255); if(n.target.side==='left') c.mot.left=v; else c.mot.right=v; }
+      else c.vars[n.target.name]=v; break; }
+    case 'if': if(n.cond(c)) runBody(n.body,c); else if(n.elseBody) runBody(n.elseBody,c); break;
+    case 'for':{ let a=Math.round(n.fromFn(c)), b=Math.round(n.toFn(c));
+      for(let k=a;k<=b;k++){ c.vars[n.name]=k; runBody(n.body,c); if(++forGuard>20000){ haltRequested=true; return; } } break; }
+    case 'stop': haltRequested=true; break;
+  }
+}
+
+let program=null, compileErr=null, started=false;
+let batLevel=100, batLowFired=false;
+const eventQueue=[];
+
+function setProgram(src){
+  const r=compileProgram(src);
+  if(r.error){ compileErr=r.error; program=null; } else { compileErr=null; program=r.program; }
+  started=false;
+  const st=document.getElementById('status');
+  if(compileErr){ st.className='status err'; st.textContent='⚠ '+compileErr; }
+  else { st.className='status ok'; st.textContent='✓ '+summary(program); }
+}
+function summary(p){
+  const s=[]; if(p.start.length)s.push('start'); if(p.loop.length||p.implicitLoop.length)s.push('loop');
+  const ks=Object.keys(p.keys); if(ks.length)s.push(ks.length+'× key');
+  if(p.bstop.length)s.push('bstop'); if(p.bat_low.length)s.push('bat_low');
+  return 'übersetzt'+(s.length?' ('+s.join(', ')+')':'');
+}
+function initRun(){
+  for(const k in vars) delete vars[k];
+  motState.left=0; motState.right=0; haltRequested=false;
+  if(program && program.start.length){ forGuard=0; runBody(program.start, buildContext(sampleCamera())); }
+  started=true;
+}
+
+let lastCmdL=null,lastCmdR=null;
+function step(dt){
+  const err=sampleCamera();
+  const c=buildContext(err);
+  updateContextUI(c);
+
+  // Akku entladen + bat_low ausloesen
+  if(running){ batLevel=Math.max(0, batLevel - dt*(100/120)); updateBattery();
+    if(batLevel<=20 && !batLowFired){ batLowFired=true; queueEvent({type:'bat_low'}); } }
+
+  if(program && !compileErr){
+    forGuard=0;
+    // 1) Ereignisse
+    while(eventQueue.length){
+      const ev=eventQueue.shift();
+      if(ev.type==='key' && program.keys[ev.key]) runBody(program.keys[ev.key],c);
+      else if(ev.type==='bstop'){ runBody(program.bstop,c); haltRequested=true; }
+      else if(ev.type==='bat_low'){ runBody(program.bat_low,c); log('bat_low','ev'); }
+    }
+    // 2) Hauptschleife
+    runBody(program.implicitLoop,c);
+    runBody(program.loop,c);
+  }else{ motState.left=0; motState.right=0; }
+
+  const left=motState.left, right=motState.right;
+  motorBars(left,right);
+  const li=Math.round(left), ri=Math.round(right);
+  if(li!==lastCmdL||ri!==lastCmdR){ log(`SET,LEFT,${li}  SET,RIGHT,${ri}`,'tx'); lastCmdL=li; lastCmdR=ri; }
+
+  // Kinematik
+  const K=0.80, vL=left*K, vR=right*K, v=(vL+vR)/2, om=(vR-vL)/robot.wheelBase;
+  robot.th+=om*dt; robot.x+=v*Math.cos(robot.th)*dt; robot.y+=v*Math.sin(robot.th)*dt;
+  robot.trail.push([robot.x,robot.y]); if(robot.trail.length>900) robot.trail.shift();
+
+  if(haltRequested){ haltRequested=false; setRunning(false); }
+}
+
+function queueEvent(ev){ if(running) eventQueue.push(ev); }
+
+/* ===================================================================
+   5) ZEICHNEN
+=================================================================== */
+function draw(){
+  ctx.drawImage(trackCv,0,0);
+  if(robot.trail.length>1){
+    ctx.strokeStyle='rgba(63,185,80,.55)';ctx.lineWidth=2.5;ctx.beginPath();
+    ctx.moveTo(robot.trail[0][0],robot.trail[0][1]);
+    for(const [x,y] of robot.trail) ctx.lineTo(x,y); ctx.stroke();
+  }
+  const ct=Math.cos(robot.th),st=Math.sin(robot.th);
+  const fx=robot.x+ct*robot.camAhead,fy=robot.y+st*robot.camAhead,hw=robot.camW/2,hh=robot.camH/2;
+  const corners=[[-hh,-hw],[-hh,hw],[hh,hw],[hh,-hw]].map(([v,u])=>
+     [fx+ct*(-v)+(-st)*u, fy+st*(-v)+ct*u]);
+  ctx.strokeStyle='rgba(240,169,59,.9)';ctx.lineWidth=2;ctx.setLineDash([5,4]);
+  ctx.beginPath();ctx.moveTo(corners[0][0],corners[0][1]);
+  for(const c of corners) ctx.lineTo(c[0],c[1]); ctx.closePath();ctx.stroke();ctx.setLineDash([]);
+  ctx.save();ctx.translate(robot.x,robot.y);ctx.rotate(robot.th);
+  ctx.fillStyle='#4aa8ff';roundRect(ctx,-20,-18,40,36,7);ctx.fill();
+  ctx.fillStyle='#04121f';ctx.fillRect(-14,-21,16,6);ctx.fillRect(-14,15,16,6);
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(20,0);ctx.lineTo(10,-6);ctx.lineTo(10,6);ctx.closePath();ctx.fill();
+  ctx.restore();
+}
+function roundRect(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);
+  c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+
+/* ===================================================================
+   6) LOOP + UI
+=================================================================== */
+let running=false,lastT=0;
+function frame(ts){ if(!running) return; let dt=(ts-lastT)/1000; lastT=ts; if(dt>0.05)dt=0.05;
+  for(let k=0;k<2;k++) step(dt/2); draw(); requestAnimationFrame(frame); }
+
+function updateContextUI(c){
+  document.getElementById('lineTxt').textContent=c.found?'Linie erkannt':'Linie verloren';
+  document.getElementById('lineTxt').style.color=c.found?'var(--ok)':'var(--red)';
+  document.getElementById('vErr').textContent=c.error.toFixed(1);
+  document.getElementById('vX').textContent=c.x.toFixed(2);
+  const chips=[['found',c.found],['lost',c.lost],['left',c.left],['center',c.center],
+    ['right',c.right],['far_left',c.far_left],['far_right',c.far_right]];
+  document.getElementById('ctxChips').innerHTML=
+    chips.map(([n,on])=>`<span class="chip${on?' on':''}">${n}</span>`).join('');
+  const keys=Object.keys(vars);
+  document.getElementById('varsBox').innerHTML = keys.length
+    ? 'Variablen: '+keys.map(k=>`${k}=<b>${(+vars[k]).toFixed(vars[k]%1?1:0)}</b>`).join('  ')
+    : 'Variablen: –';
+}
+function motorBars(l,r){
+  const set=(fill,num,val)=>{ const f=document.getElementById(fill);
+    const w=Math.abs(val)/255*50; f.style.left=val>=0?'50%':(50-w)+'%'; f.style.width=w+'%';
+    f.style.background=val>=0?'var(--acc)':'var(--warn)';
+    document.getElementById(num).textContent=Math.round(val); };
+  set('barL','numL',l); set('barR','numR',r);
+}
+const logEl=document.getElementById('log'); let logN=0;
+function log(m,cls){ const d=document.createElement('div');
+  d.innerHTML=`<span class="${cls||'tx'}">${cls==='ev'?'⚡':'→'} ${m}</span>`; logEl.appendChild(d);
+  if(++logN>200){logEl.removeChild(logEl.firstChild);logN--;} logEl.scrollTop=logEl.scrollHeight; }
+function logClear(){ logEl.innerHTML=''; logN=0; }
+function updateBattery(){ const pct=Math.round(batLevel);
+  document.getElementById('batFill').style.width=pct+'%';
+  document.getElementById('batFill').style.background = pct<=20?'var(--red)':(pct<=45?'var(--warn)':'var(--ok)');
+  document.getElementById('batTxt').textContent=pct+'%'; }
+
+function resetRobot(){
+  const f=tracks[trackName]; const [x0,y0]=f(0),[x1,y1]=f(0.004);
+  robot.x=x0;robot.y=y0;robot.th=Math.atan2(y1-y0,x1-x0);robot.trail.length=0;
+  motState.left=0;motState.right=0; for(const k in vars) delete vars[k];
+  lastErr=0; lastCmdL=lastCmdR=null; started=false; haltRequested=false;
+  batLevel=100; batLowFired=false; eventQueue.length=0; updateBattery(); logClear();
+}
+function setRunning(on){
+  if(on && !started) initRun();
+  running=on;
+  const b=document.getElementById('btnRun'), p=document.getElementById('runpill');
+  b.textContent=on?'⏸ Pause':'▶ Programm starten'; b.classList.toggle('primary',!on);
+  p.textContent=on?'läuft':'gestoppt'; p.className='pill '+(on?'run':'stop');
+  if(on){ lastT=performance.now(); requestAnimationFrame(frame); }
+}
+
+/* ===================================================================
+   7) BEISPIELE
+=================================================================== */
+const EXAMPLES={
+prop:
+`# Proportional: je weiter die Linie weg ist, desto staerker lenken.
+# cam.line.error ist die Abweichung in Pixeln (+ = rechts).
+mot.left  = 120 - cam.line.error * 1.9
+mot.right = 120 + cam.line.error * 1.9
+if cam.line.lost:
+  mot.left = 40
+  mot.right = -40`,
+
+zones:
+`# Hauptschleife mit eingerueckten Bloecken (wie Python).
+loop:
+  mot.left = 95
+  mot.right = 95
+  if cam.line.left:
+    mot.left = 110
+    mot.right = 45
+  if cam.line.right:
+    mot.left = 45
+    mot.right = 110
+  if cam.line.lost:
+    mot.left = 0
+    mot.right = 0`,
+
+drive:
+`# Mit (BT-)Tastatur fahren:  w vor, s stop, a/d lenken, Leertaste Halt.
+# In die Simulation klicken, dann Tasten druecken.
+start:
+  speed = 0
+  turn = 0
+key w:
+  speed = 130
+key s:
+  speed = 0
+key a:
+  turn = -70
+key d:
+  turn = 70
+key space:
+  speed = 0
+  turn = 0
+loop:
+  mot.left  = speed + turn
+  mot.right = speed - turn
+bstop:
+  mot.left = 0
+  mot.right = 0`,
+
+events:
+`# Ereignis-Logik: folgt der Linie, haelt bei Akku schwach / Stopp-Knopf.
+start:
+  mode = 1
+loop:
+  if mode == 1:
+    mot.left  = 95 - cam.line.error * 1.6
+    mot.right = 95 + cam.line.error * 1.6
+  else:
+    mot.left = 0
+    mot.right = 0
+bat_low:
+  mode = 0
+bstop:
+  mode = 0
+  stop`,
+
+fordemo:
+`# for laeuft synchron (alle Durchlaeufe in einem Takt) - gut zum Rechnen.
+# Ergebnis n erscheint im Live-Kontext (sollte 15 sein).
+start:
+  n = 0
+  for i = 1 to 5:
+    n = n + i
+loop:
+  mot.left = 0
+  mot.right = 0`,
+
+empty:
+`# Deine Regeln. Beispiel:
+loop:
+  if cam.line.left:
+    mot.left = 100
+    mot.right = 0`
+};
+
+/* ===================================================================
+   8) VERDRAHTUNG
+=================================================================== */
+const codeEl=document.getElementById('code');
+let compileTimer=null;
+codeEl.addEventListener('input',()=>{ clearTimeout(compileTimer);
+  compileTimer=setTimeout(()=>setProgram(codeEl.value),250); });
+codeEl.addEventListener('keydown',e=>{ if(e.key==='Tab'){e.preventDefault();
+  const s=codeEl.selectionStart; codeEl.setRangeText('  ',s,s,'end'); }});
+
+document.getElementById('btnRun').addEventListener('click',()=>setRunning(!running));
+document.getElementById('btnReset').addEventListener('click',()=>{resetRobot();draw();sampleCamera();updateContextUI(buildContext(sampleCamera()));});
+document.getElementById('track').addEventListener('change',e=>{buildTrack(e.target.value);resetRobot();draw();sampleCamera();});
+document.getElementById('btnLoad').addEventListener('click',()=>{
+  const key=document.getElementById('examples').value;
+  codeEl.value=EXAMPLES[key]; setProgram(codeEl.value); resetRobot(); draw(); sampleCamera();
+});
+document.getElementById('btnBstop').addEventListener('click',()=>{ queueEvent({type:'bstop'}); });
+document.getElementById('btnBatlow').addEventListener('click',()=>{
+  batLevel=Math.min(batLevel,15); updateBattery(); batLowFired=true; queueEvent({type:'bat_low'}); });
+
+// Tastatur-Events (BT-Tastatur). Nur wenn nicht im Editor getippt wird.
+function mapKey(e){ if(e.key===' ') return 'space';
+  if(e.key.length===1) return e.key.toLowerCase();
+  const m={ArrowLeft:'left',ArrowRight:'right',ArrowUp:'up',ArrowDown:'down',Enter:'enter'};
+  return m[e.key]||e.key.toLowerCase(); }
+window.addEventListener('keydown',e=>{
+  const a=document.activeElement;
+  if(a&&(a.tagName==='TEXTAREA'||a.tagName==='INPUT'||a.tagName==='SELECT')) return;
+  if(!running) return;
+  const k=mapKey(e);
+  document.getElementById('lastKey').textContent=k;
+  if(program && program.keys[k]){ queueEvent({type:'key',key:k}); e.preventDefault(); }
+});
+
+// Init
+buildTrack(trackName);
+codeEl.value=EXAMPLES.prop;
+setProgram(codeEl.value);
+resetRobot();
+draw();
+updateContextUI(buildContext(sampleCamera()));
+</script>
+</body>
+</html>

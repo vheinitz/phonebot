@@ -1,0 +1,24 @@
+# --- Android / Gradle ---
+.gradle/
+build/
+app/build/
+*/build/
+# maschinenabhängiger SDK-Pfad
+local.properties
+captures/
+.externalNativeBuild/
+.cxx/
+
+# --- Android Studio / IntelliJ ---
+.idea/
+*.iml
+
+# --- Arduino/ESP32 Build (falls lokal kompiliert) ---
+firmware/**/build/
+*.hex
+*.bin.tmp
+
+# --- OS / Editor ---
+.DS_Store
+Thumbs.db
+*~
